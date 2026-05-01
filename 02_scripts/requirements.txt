@@ -1,0 +1,26 @@
+# pandas: manejo de tablas, CSV, joins, agrupaciones y dataset maestro.
+pandas
+
+# numpy: calculos numericos, por ejemplo distancia aproximada.
+numpy
+
+# scikit-learn: entrenamiento de modelos predictivos.
+scikit-learn
+
+# fastapi: creacion de la API para consultar el riesgo de retraso.
+fastapi
+
+# uvicorn: servidor para ejecutar la API de FastAPI.
+uvicorn
+
+# streamlit: dashboard web interactivo.
+streamlit
+
+# plotly: graficos usados dentro del dashboard.
+plotly
+
+# joblib: guardar y cargar el modelo entrenado.
+joblib
+
+# pyarrow: leer y escribir archivos parquet.
+pyarrow

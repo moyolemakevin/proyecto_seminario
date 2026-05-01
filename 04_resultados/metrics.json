@@ -1,0 +1,23 @@
+{
+  "target_balance": {
+    "late_rate": 0.06623355563213265,
+    "on_time_rate": 0.9337664443678674,
+    "late_count": 6535,
+    "on_time_count": 92131
+  },
+  "models": {
+    "random_forest": {
+      "precision": 0.13323227219134243,
+      "recall": 0.6052027543993879,
+      "f1": 0.2183876311430149,
+      "roc_auc": 0.7164480873658954
+    },
+    "gradient_boosting": {
+      "precision": 0.1431079894644425,
+      "recall": 0.6235654169854629,
+      "f1": 0.2327906312482148,
+      "roc_auc": 0.7369031687268719
+    }
+  },
+  "best_model": "gradient_boosting"
+}
