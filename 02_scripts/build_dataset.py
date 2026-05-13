@@ -9,22 +9,57 @@ RAW_DIR = ROOT / "00_datos_crudos"
 PROCESSED_DIR = ROOT / "01_datos_procesados"
 OUTPUT_PATH = PROCESSED_DIR / "master_dataset.parquet"
 
+RAW_FILES = {
+    "orders": "olist_orders_dataset.csv",
+    "customers": "olist_customers_dataset.csv",
+    "items": "olist_order_items_dataset.csv",
+    "products": "olist_products_dataset.csv",
+    "reviews": "olist_order_reviews_dataset.csv",
+    "payments": "olist_order_payments_dataset.csv",
+    "sellers": "olist_sellers_dataset.csv",
+    "geolocation": "olist_geolocation_dataset.csv",
+    "translation": "product_category_name_translation.csv",
+}
+
 
 def read_csv(name: str) -> pd.DataFrame:
-    return pd.read_csv(RAW_DIR / name)
+    path = RAW_DIR / name
+    if not path.exists():
+        raise FileNotFoundError(f"No se encontro el archivo requerido: {path}")
+    return pd.read_csv(path)
 
 
-def build_master_dataset() -> pd.DataFrame:
-    orders = read_csv("olist_orders_dataset.csv")
-    customers = read_csv("olist_customers_dataset.csv")
-    items = read_csv("olist_order_items_dataset.csv")
-    products = read_csv("olist_products_dataset.csv")
-    reviews = read_csv("olist_order_reviews_dataset.csv")
-    payments = read_csv("olist_order_payments_dataset.csv")
-    sellers = read_csv("olist_sellers_dataset.csv")
-    geolocation = read_csv("olist_geolocation_dataset.csv")
-    translation = read_csv("product_category_name_translation.csv")
+def haversine_distance_km(
+    lat_origin: pd.Series,
+    lng_origin: pd.Series,
+    lat_destination: pd.Series,
+    lng_destination: pd.Series,
+) -> pd.Series:
+    """Calcula distancia aproximada en kilometros entre vendedor y cliente."""
+    radius_km = 6371.0
+    lat_1 = np.radians(lat_origin)
+    lat_2 = np.radians(lat_destination)
+    delta_lat = np.radians(lat_destination - lat_origin)
+    delta_lng = np.radians(lng_destination - lng_origin)
 
+    haversine = (
+        np.sin(delta_lat / 2) ** 2
+        + np.cos(lat_1) * np.cos(lat_2) * np.sin(delta_lng / 2) ** 2
+    )
+    return 2 * radius_km * np.arcsin(np.sqrt(haversine))
+
+
+def euclidean_distance_degrees(
+    lat_origin: pd.Series,
+    lng_origin: pd.Series,
+    lat_destination: pd.Series,
+    lng_destination: pd.Series,
+) -> pd.Series:
+    """Distancia proxy pedida por el caso: euclidiana sobre lat/lon."""
+    return np.sqrt((lat_origin - lat_destination) ** 2 + (lng_origin - lng_destination) ** 2)
+
+
+def prepare_orders(orders: pd.DataFrame) -> pd.DataFrame:
     date_cols = [
         "order_purchase_timestamp",
         "order_approved_at",
@@ -35,26 +70,64 @@ def build_master_dataset() -> pd.DataFrame:
     for col in date_cols:
         orders[col] = pd.to_datetime(orders[col], errors="coerce")
 
-    orders["dias_retraso"] = (
-        orders["order_delivered_customer_date"] - orders["order_estimated_delivery_date"]
+    supervised_orders = orders.loc[
+        orders["order_status"].eq("delivered")
+        & orders["order_delivered_customer_date"].notna()
+        & orders["order_estimated_delivery_date"].notna()
+    ].copy()
+
+    supervised_orders["dias_retraso"] = (
+        supervised_orders["order_delivered_customer_date"]
+        - supervised_orders["order_estimated_delivery_date"]
     ).dt.days
-    orders["entrego_tarde"] = (orders["dias_retraso"] > 0).astype(int)
-    orders["approval_time_hours"] = (
-        orders["order_approved_at"] - orders["order_purchase_timestamp"]
+    supervised_orders["entrego_tarde"] = (
+        supervised_orders["dias_retraso"] > 0
+    ).astype(int)
+    supervised_orders["approval_time_hours"] = (
+        supervised_orders["order_approved_at"]
+        - supervised_orders["order_purchase_timestamp"]
     ).dt.total_seconds() / 3600
+    supervised_orders["purchase_month"] = supervised_orders[
+        "order_purchase_timestamp"
+    ].dt.month
+    supervised_orders["purchase_dayofweek"] = supervised_orders[
+        "order_purchase_timestamp"
+    ].dt.dayofweek
+    supervised_orders["purchase_hour"] = supervised_orders[
+        "order_purchase_timestamp"
+    ].dt.hour
+    supervised_orders["is_weekend"] = supervised_orders["purchase_dayofweek"].isin(
+        [5, 6]
+    ).astype(int)
 
-    products = products.merge(
-        translation,
-        on="product_category_name",
-        how="left",
+    return supervised_orders
+
+
+def prepare_products(
+    products: pd.DataFrame,
+    translation: pd.DataFrame,
+) -> pd.DataFrame:
+    products = products.merge(translation, on="product_category_name", how="left")
+    products["product_category_name_english"] = (
+        products["product_category_name_english"]
+        .fillna(products["product_category_name"])
+        .fillna("unknown")
     )
-    products["product_category_name_english"] = products[
-        "product_category_name_english"
-    ].fillna(products["product_category_name"]).fillna("unknown")
+    products["product_volume_cm3"] = (
+        products["product_length_cm"]
+        * products["product_height_cm"]
+        * products["product_width_cm"]
+    )
+    return products
 
-    item_details = (
-        items.merge(products, on="product_id", how="left")
-        .merge(sellers, on="seller_id", how="left")
+
+def aggregate_items(
+    items: pd.DataFrame,
+    products: pd.DataFrame,
+    sellers: pd.DataFrame,
+) -> pd.DataFrame:
+    item_details = items.merge(products, on="product_id", how="left").merge(
+        sellers, on="seller_id", how="left"
     )
 
     item_numeric = (
@@ -65,6 +138,10 @@ def build_master_dataset() -> pd.DataFrame:
             avg_price=("price", "mean"),
             total_freight=("freight_value", "sum"),
             avg_freight=("freight_value", "mean"),
+            total_product_weight_g=("product_weight_g", "sum"),
+            avg_product_weight_g=("product_weight_g", "mean"),
+            max_product_volume_cm3=("product_volume_cm3", "max"),
+            avg_product_volume_cm3=("product_volume_cm3", "mean"),
         )
     )
     item_main = (
@@ -80,9 +157,11 @@ def build_master_dataset() -> pd.DataFrame:
             ]
         ]
     )
-    item_agg = item_numeric.merge(item_main, on="order_id", how="left")
+    return item_numeric.merge(item_main, on="order_id", how="left")
 
-    review_agg = (
+
+def aggregate_reviews(reviews: pd.DataFrame) -> pd.DataFrame:
+    return (
         reviews.groupby("order_id")
         .agg(
             review_score=("review_score", "mean"),
@@ -91,6 +170,8 @@ def build_master_dataset() -> pd.DataFrame:
         .reset_index()
     )
 
+
+def aggregate_payments(payments: pd.DataFrame) -> pd.DataFrame:
     payment_numeric = (
         payments.groupby("order_id", as_index=False)
         .agg(
@@ -103,8 +184,10 @@ def build_master_dataset() -> pd.DataFrame:
         payments.sort_values(["order_id", "payment_value"], ascending=[True, False])
         .drop_duplicates("order_id")[["order_id", "payment_type"]]
     )
-    payment_agg = payment_numeric.merge(payment_main, on="order_id", how="left")
+    return payment_numeric.merge(payment_main, on="order_id", how="left")
 
+
+def aggregate_geolocation(geolocation: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     geo_agg = (
         geolocation.groupby("geolocation_zip_code_prefix", as_index=False)
         .agg(
@@ -112,7 +195,6 @@ def build_master_dataset() -> pd.DataFrame:
             geolocation_lng=("geolocation_lng", "mean"),
         )
     )
-
     customer_geo = geo_agg.rename(
         columns={
             "geolocation_zip_code_prefix": "customer_zip_code_prefix",
@@ -127,9 +209,21 @@ def build_master_dataset() -> pd.DataFrame:
             "geolocation_lng": "seller_lng",
         }
     )
+    return customer_geo, seller_geo
+
+
+def build_master_dataset() -> pd.DataFrame:
+    raw = {name: read_csv(file_name) for name, file_name in RAW_FILES.items()}
+
+    orders = prepare_orders(raw["orders"])
+    products = prepare_products(raw["products"], raw["translation"])
+    item_agg = aggregate_items(raw["items"], products, raw["sellers"])
+    review_agg = aggregate_reviews(raw["reviews"])
+    payment_agg = aggregate_payments(raw["payments"])
+    customer_geo, seller_geo = aggregate_geolocation(raw["geolocation"])
 
     master = (
-        orders.merge(customers, on="customer_id", how="left")
+        orders.merge(raw["customers"], on="customer_id", how="left")
         .merge(item_agg, on="order_id", how="inner")
         .merge(review_agg, on="order_id", how="left")
         .merge(payment_agg, on="order_id", how="left")
@@ -137,14 +231,22 @@ def build_master_dataset() -> pd.DataFrame:
         .merge(seller_geo, on="seller_zip_code_prefix", how="left")
     )
 
-    master["distancia_aprox"] = np.sqrt(
-        (master["seller_lat"] - master["customer_lat"]) ** 2
-        + (master["seller_lng"] - master["customer_lng"]) ** 2
+    master["distancia_aprox"] = euclidean_distance_degrees(
+        master["seller_lat"],
+        master["seller_lng"],
+        master["customer_lat"],
+        master["customer_lng"],
+    )
+    master["distancia_km_haversine"] = haversine_distance_km(
+        master["seller_lat"],
+        master["seller_lng"],
+        master["customer_lat"],
+        master["customer_lng"],
     )
 
-    master["purchase_month"] = master["order_purchase_timestamp"].dt.month
-    master["purchase_dayofweek"] = master["order_purchase_timestamp"].dt.dayofweek
-    master["review_score"] = master["review_score"].fillna(master["review_score"].median())
+    master["review_score"] = master["review_score"].fillna(
+        master["review_score"].median()
+    )
     master["review_count"] = master["review_count"].fillna(0)
     master["payment_type"] = master["payment_type"].fillna("unknown")
     master["product_category_name_english"] = master[

@@ -243,11 +243,11 @@ Al ejecutar `build_dataset.py`, el proyecto genera:
 
 Salida actual:
 
-Filas: 98,666
-Columnas: 37
-Pedidos tardios: 6,535
-Pedidos a tiempo o antes: 92,131
-Tasa de entregas tardias: 6.62%
+Filas: 96,470
+Columnas: 44
+Pedidos tardios: 6,534
+Pedidos a tiempo o antes: 89,936
+Tasa de entregas tardias: 6.77%
 
 ## Entrenamiento y resultados
 
@@ -262,17 +262,18 @@ gradient_boosting
 
 Metricas actuales del mejor modelo:
 
-precision: 0.1431
-recall: 0.6236
-f1: 0.2328
-roc_auc: 0.7369
+precision: 0.2315
+recall: 0.3711
+f1: 0.2851
+roc_auc: 0.7424
+umbral_operativo: 0.6418
 
 Interpretacion:
 
-- El dataset esta desbalanceado: solo 6.62% de pedidos llegaron tarde.
-- El modelo detecta una parte importante de los pedidos tardios.
-- La precision es baja, por lo que puede generar falsas alertas.
-- El resultado sirve como alerta temprana, no como verdad absoluta.
+- El dataset esta desbalanceado: solo 6.77% de pedidos llegaron tarde.
+- El modelo concentra pedidos tardios por encima de la tasa base historica.
+- El umbral operativo busca balancear precision, recall y volumen de alertas.
+- El resultado sirve como alerta temprana y cola de priorizacion, no como verdad absoluta.
 
 ## Entregables generados
 
@@ -281,6 +282,8 @@ Interpretacion:
 04_resultados/metrics.json
 04_resultados/feature_importance.csv
 04_resultados/category_risk.csv
+05_referencias/brazil_states.geojson
+05_referencias/03_diagrama_relacional_y_joins.md
 02_scripts/api.py
 02_scripts/dashboard.py
 
@@ -289,6 +292,19 @@ Interpretacion:
 GET /
 
 Devuelve informacion basica del servicio.
+
+GET /health
+
+Devuelve estado del servicio, modelo cargado, dataset cargado y filas disponibles.
+
+GET /catalog/states
+
+Devuelve el catalogo de estados usados por el proyecto con codigo, nombre y
+etiqueta legible. Ejemplo: SP - Sao Paulo.
+
+GET /orders/example_payload
+
+Devuelve un ejemplo de entrada para probar la prediccion.
 
 POST /orders/delay_risk
 
@@ -305,6 +321,23 @@ Ejemplo de entrada:
 GET /orders/top_risk_categories
 
 Devuelve categorias con mayor tasa historica de retraso.
+
+GET /orders/top_risk_routes
+
+Devuelve rutas vendedor-cliente con mayor tasa historica de retraso, incluyendo
+abreviatura y nombre completo de cada estado.
+
+## Mejoras de producto agregadas
+
+- Estados mostrados como abreviatura y nombre completo.
+- API capaz de recibir `SP` o `SP - Sao Paulo`.
+- Cola operativa de pedidos con mayor riesgo en el dashboard.
+- Mapa coropletico de Brasil por estado del cliente o vendedor.
+- Grafico de barras de satisfaccion promedio por categoria.
+- `distancia_aprox` alineada a la rubrica como distancia euclidiana en grados.
+- `distancia_km_haversine` agregada para visualizaciones en kilometros.
+- Acciones recomendadas por nivel de riesgo.
+- Prompt profesional de producto en `05_referencias/02_prompt_profesional_producto.md`.
 
 ## Uso esperado del sistema
 

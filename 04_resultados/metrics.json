@@ -1,23 +1,140 @@
 {
+  "generated_at": "2026-05-12T20:09:32",
+  "data": {
+    "rows": 96470,
+    "features": [
+      "seller_state",
+      "customer_state",
+      "product_category_name_english",
+      "payment_type",
+      "distancia_aprox",
+      "distancia_km_haversine",
+      "total_price",
+      "avg_price",
+      "total_freight",
+      "avg_freight",
+      "item_count",
+      "total_product_weight_g",
+      "avg_product_weight_g",
+      "max_product_volume_cm3",
+      "avg_product_volume_cm3",
+      "payment_installments",
+      "payment_value",
+      "payment_count",
+      "approval_time_hours",
+      "purchase_month",
+      "purchase_dayofweek",
+      "purchase_hour",
+      "is_weekend"
+    ],
+    "categorical_features": [
+      "seller_state",
+      "customer_state",
+      "product_category_name_english",
+      "payment_type"
+    ],
+    "numeric_features": [
+      "distancia_aprox",
+      "distancia_km_haversine",
+      "total_price",
+      "avg_price",
+      "total_freight",
+      "avg_freight",
+      "item_count",
+      "total_product_weight_g",
+      "avg_product_weight_g",
+      "max_product_volume_cm3",
+      "avg_product_volume_cm3",
+      "payment_installments",
+      "payment_value",
+      "payment_count",
+      "approval_time_hours",
+      "purchase_month",
+      "purchase_dayofweek",
+      "purchase_hour",
+      "is_weekend"
+    ]
+  },
   "target_balance": {
-    "late_rate": 0.06623355563213265,
-    "on_time_rate": 0.9337664443678674,
-    "late_count": 6535,
-    "on_time_count": 92131
+    "late_rate": 0.06773090079817559,
+    "on_time_rate": 0.9322690992018244,
+    "late_count": 6534,
+    "on_time_count": 89936
   },
   "models": {
     "random_forest": {
-      "precision": 0.13323227219134243,
-      "recall": 0.6052027543993879,
-      "f1": 0.2183876311430149,
-      "roc_auc": 0.7164480873658954
+      "default_threshold": {
+        "threshold": 0.5,
+        "precision": 0.15952597994530537,
+        "recall": 0.5355776587605203,
+        "f1": 0.24582967515364354,
+        "roc_auc": 0.7324503555211537,
+        "average_precision": 0.20453747421403037,
+        "alert_rate": 0.22742821602570748,
+        "confusion_matrix": {
+          "true_negative": 14299,
+          "false_positive": 3688,
+          "false_negative": 607,
+          "true_positive": 700
+        }
+      },
+      "optimized_threshold": {
+        "threshold": 0.5588,
+        "precision": 0.21775898520084566,
+        "recall": 0.39403213465952563,
+        "f1": 0.28050108932461876,
+        "roc_auc": 0.7324503555211537,
+        "average_precision": 0.20453747421403037,
+        "alert_rate": 0.1225769669327252,
+        "confusion_matrix": {
+          "true_negative": 16137,
+          "false_positive": 1850,
+          "false_negative": 792,
+          "true_positive": 515
+        }
+      }
     },
     "gradient_boosting": {
-      "precision": 0.1431079894644425,
-      "recall": 0.6235654169854629,
-      "f1": 0.2327906312482148,
-      "roc_auc": 0.7369031687268719
+      "default_threshold": {
+        "threshold": 0.5,
+        "precision": 0.15049797122832903,
+        "recall": 0.6243305279265493,
+        "f1": 0.2425323227819884,
+        "roc_auc": 0.742378464358068,
+        "average_precision": 0.20640103732241588,
+        "alert_rate": 0.28102000621955014,
+        "confusion_matrix": {
+          "true_negative": 13381,
+          "false_positive": 4606,
+          "false_negative": 491,
+          "true_positive": 816
+        }
+      },
+      "optimized_threshold": {
+        "threshold": 0.6418,
+        "precision": 0.2315035799522673,
+        "recall": 0.3710788064269319,
+        "f1": 0.28512639623750735,
+        "roc_auc": 0.742378464358068,
+        "average_precision": 0.20640103732241588,
+        "alert_rate": 0.1085829791645071,
+        "confusion_matrix": {
+          "true_negative": 16377,
+          "false_positive": 1610,
+          "false_negative": 822,
+          "true_positive": 485
+        }
+      }
     }
   },
-  "best_model": "gradient_boosting"
+  "best_model": "gradient_boosting",
+  "selected_threshold": 0.6418,
+  "risk_thresholds": {
+    "medium": 0.6418,
+    "high": 0.6918
+  },
+  "business_interpretation": {
+    "objective": "Usar el modelo como alerta temprana para priorizar seguimiento logistico.",
+    "operational_note": "El recall representa la proporcion de pedidos tardios capturados por la alerta; la precision representa que tan limpia es la cola de alertas."
+  }
 }
